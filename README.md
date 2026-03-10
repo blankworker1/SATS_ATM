@@ -1,4 +1,4 @@
-# ⚡ Sats ATM
+# ⚡ BALANCE ATM
 
 A self-contained coin-to-Lightning machine built with an ESP32, HX-916 coin acceptor, and an Android tablet. Insert coins, scan a QR code with a Lightning wallet, receive sats instantly.
 
