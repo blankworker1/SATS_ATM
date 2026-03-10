@@ -24,8 +24,6 @@
 
 // ── Timing ───────────────────────────────────────────────────────
 #define INTER_COIN_MS  2500               // ms gap before session is finalised
-#define SESSION_TIMEOUT_S 60              // seconds before QR expires
-#define POLL_INTERVAL_MS  2000            // payment status poll interval
 #define BALANCE_POLL_MS   15000           // wallet balance poll interval
 
 // ── Blink API ────────────────────────────────────────────────────
