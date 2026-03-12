@@ -21,7 +21,7 @@ Coins → HX-916 → PC817 → ESP32 → Blink API → visitor's Blink wallet
 2. Operator powers on the ESP32 — tablet opens `http://192.168.4.1`
 3. On first boot, a settings screen appears — enter WiFi and Blink ATM wallet API credentials
 4. ESP32 connects to the internet, fetches the EUR→sat rate and starting wallet balance
-5. Machine is ready — visitor inserts coins, types their Blink username, receives sats
+5. Machine is ready — visitor inserts coins, types their Blink wallet LN address, receives sats
 
 ---
 
