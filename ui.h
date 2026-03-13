@@ -1,14 +1,6 @@
 #pragma once
-// ═══════════════════════════════════════════════════════════════
-//  ui.h  —  Tablet UI served by the ESP32 web server
-//
-//  Generated from coin_atm_esp32.html
-//  Stored in PROGMEM (flash) — does not consume RAM at runtime
-// ═══════════════════════════════════════════════════════════════
-
 #include <Arduino.h>
 #include <pgmspace.h>
-
 const char UI_HTML[] PROGMEM = R"rawhtml(
 <!DOCTYPE html>
 <html lang="en">
@@ -425,6 +417,7 @@ body {
   text-align: center;
   margin-top: -4px;
 }
+.success-bar {
   width: 100%;
   max-width: 400px;
   height: 6px;
@@ -668,6 +661,63 @@ body {
 .btn.danger:hover { background: #fff5f5; border-color: #ef4444; }
 .btn.sm { padding: 6px 12px; font-size: 12px; }
 .long-press-hint { font-size: 10px; color: var(--mid); text-align: center; margin-top: -8px; }
+
+/* ── CONNECTIVITY INDICATOR ──────────────────────── */
+.conn-indicator {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background 0.5s;
+}
+.conn-indicator.show { display: flex; }
+.conn-indicator.online  { background: #22c55e; box-shadow: 0 0 6px #22c55e88; animation: pulse-conn 2s ease-in-out infinite; }
+.conn-indicator.offline { background: #ef4444; box-shadow: 0 0 6px #ef444488; animation: flash-seg 1s ease-in-out infinite; }
+@keyframes pulse-conn { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ── BATTERY INDICATOR ───────────────────────────── */
+.bat-indicator {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 16px;
+}
+.bat-indicator.show { display: flex; }
+
+/* ── LOW BATTERY BANNER ──────────────────────────── */
+.bat-banner {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 50;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  transform: translateY(100%);
+  transition: transform 0.4s ease;
+}
+.bat-banner.warn {
+  background: var(--yellow);
+  color: var(--black);
+  transform: translateY(0);
+}
+.bat-banner.critical {
+  background: #ef4444;
+  color: var(--white);
+  transform: translateY(0);
+  animation: flash-banner 1.5s ease-in-out infinite;
+}
+@keyframes flash-banner { 0%,100%{opacity:1} 50%{opacity:0.7} }
 </style>
 </head>
 <body>
@@ -679,12 +729,17 @@ body {
       <span class="logo-bolt"><span class="logo-coin"><svg viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="13.68,2.16 8.4,19.44 11.76,19.44 10.32,33.84 15.6,16.56 12.24,16.56" fill="var(--yellow)" stroke="var(--black)" stroke-width="1.2" stroke-linejoin="round"/></svg></span></span>
       SATS ATM
     </div>
-    <div class="gauge-wrap">
-      <span class="gauge-label">WALLET</span>
-      <div class="gauge-segments">
-        <div class="seg empty" id="seg1"></div>
-        <div class="seg empty" id="seg2"></div>
-        <div class="seg empty" id="seg3"></div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="bat-indicator" id="bat-icon-idle"></div>
+      <div class="conn-indicator" id="conn-idle"></div>
+      <a href="/solar" style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.12em;color:#AAAAAA;text-decoration:none;border:2px solid #E0E0E0;padding:7px 14px;border-radius:6px;transition:all 0.2s;display:flex;align-items:center;gap:6px;" onmouseover="this.style.borderColor='#0D0D0D';this.style.color='#0D0D0D'" onmouseout="this.style.borderColor='#E0E0E0';this.style.color='#AAAAAA'">☀️ SOLAR</a>
+      <div class="gauge-wrap">
+        <span class="gauge-label">WALLET</span>
+        <div class="gauge-segments">
+          <div class="seg empty" id="seg1"></div>
+          <div class="seg empty" id="seg2"></div>
+          <div class="seg empty" id="seg3"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -706,6 +761,8 @@ body {
       SATS ATM
     </div>
     <div class="gauge-wrap">
+      <div class="bat-indicator" id="bat-icon-coins"></div>
+      <div class="conn-indicator" id="conn-coins"></div>
       <span class="gauge-label">WALLET</span>
       <div class="gauge-segments">
         <div class="seg empty" id="seg1b"></div>
@@ -762,6 +819,8 @@ body {
       SATS ATM
     </div>
     <div class="gauge-wrap">
+      <div class="bat-indicator" id="bat-icon-sending"></div>
+      <div class="conn-indicator" id="conn-sending"></div>
       <span class="gauge-label">WALLET</span>
       <div class="gauge-segments">
         <div class="seg empty" id="seg1c"></div>
@@ -792,6 +851,8 @@ body {
       SATS ATM
     </div>
     <div class="gauge-wrap">
+      <div class="bat-indicator" id="bat-icon-success"></div>
+      <div class="conn-indicator" id="conn-success"></div>
       <span class="gauge-label">WALLET</span>
       <div class="gauge-segments">
         <div class="seg empty" id="seg1d"></div>
@@ -814,6 +875,12 @@ body {
     <div class="success-bar"><div class="success-bar-fill" id="success-bar-fill"></div></div>
     <div class="success-address" id="success-address"></div>
   </div>
+</div>
+
+<!-- ══ BATTERY WARNING BANNER ════════════════════════ -->
+<div class="bat-banner" id="bat-banner">
+  <span id="bat-banner-icon">⚠️</span>
+  <span>ATM GOING OFFLINE SOON</span>
 </div>
 
 <!-- ══ INFO OVERLAY ═══════════════════════════════════ -->
@@ -1126,6 +1193,35 @@ async function pollState() {
     // Gauge
     if (d.gauge) setGauge(d.gauge);
 
+    // ── Connectivity indicator ────────────────────────────
+    const connClass = 'conn-indicator show ' + (d.online ? 'online' : 'offline');
+    ['idle','coins','sending','success'].forEach(id => {
+      const el = document.getElementById('conn-' + id);
+      if (el) el.className = connClass;
+    });
+
+    // ── Battery indicator ─────────────────────────────
+    if (d.batLive) {
+      const v = parseFloat(d.batV);
+      let icon = '✅';
+      let level = 'ok';
+      if (v < 12.0) { icon = '🔴'; level = 'critical'; }
+      else if (v < 12.2) { icon = '⚠️'; level = 'warn'; }
+
+      ['idle','coins','sending','success'].forEach(id => {
+        const el = document.getElementById('bat-icon-' + id);
+        if (el) { el.textContent = icon; el.classList.add('show'); }
+      });
+
+      // Warning banner — only on warn/critical
+      const banner = document.getElementById('bat-banner');
+      banner.className = 'bat-banner' + (level !== 'ok' ? ' ' + level : '');
+
+      // Block INSERT COINS on critical
+      const insertBtn = document.querySelector('.insert-btn');
+      if (insertBtn) insertBtn.disabled = (level === 'critical');
+    }
+
     // State transitions
     if (d.state === 'READY' && d.sats > 0) {
       currentSats   = d.sats;
@@ -1151,7 +1247,4 @@ setInterval(pollState, POLL_MS);
 </body>
 </html>
 )rawhtml";
-
-String getUI() {
-  return String(FPSTR(UI_HTML));
-}
+String getUI() { return String(FPSTR(UI_HTML)); }

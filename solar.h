@@ -1,0 +1,492 @@
+#pragma once
+#include <Arduino.h>
+#include <pgmspace.h>
+const char SOLAR_HTML[] PROGMEM = R"rawhtml(
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>☀️ Solar Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --white:   #FFFFFF;
+  --black:   #0D0D0D;
+  --yellow:  #FFD000;
+  --orange:  #FF6B00;
+  --green:   #22c55e;
+  --gray:    #F2F2F2;
+  --mid:     #AAAAAA;
+  --border:  #E0E0E0;
+  --mono:    'Space Mono', monospace;
+  --display: 'Bebas Neue', sans-serif;
+  --body:    'Nunito', sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--white);
+  color: var(--black);
+  font-family: var(--body);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── TOPBAR ──────────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  border-bottom: 2px solid var(--black);
+  flex-shrink: 0;
+}
+.logo {
+  font-family: var(--display);
+  font-size: 28px;
+  letter-spacing: 0.08em;
+  color: var(--black);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-sun {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  background: var(--yellow);
+  border-radius: 8px;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.atm-link {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--mid);
+  text-decoration: none;
+  border: 2px solid var(--border);
+  padding: 7px 14px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.atm-link:hover { border-color: var(--black); color: var(--black); }
+
+/* ── STATUS BAR ──────────────────────────────────── */
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 32px;
+  background: var(--gray);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  display: inline-block;
+  margin-right: 7px;
+  transition: background 0.5s;
+}
+.status-dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse-dot 2s ease infinite; }
+.conn-dot-online  { background: #22c55e !important; box-shadow: 0 0 6px #22c55e88; animation: pulse-dot 2s ease-in-out infinite; }
+.conn-dot-offline { background: #ef4444 !important; box-shadow: 0 0 6px #ef444488; animation: flash-conn 1s ease-in-out infinite; }
+@keyframes flash-conn { 0%,100%{opacity:1} 50%{opacity:0.2} }
+.status-dot.warn { background: var(--orange); }
+.status-dot.err  { background: #ef4444; }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.status-text {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--mid);
+  letter-spacing: 0.1em;
+}
+.last-update {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--mid);
+}
+
+/* ── MAIN GRID ───────────────────────────────────── */
+.main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 0;
+  overflow: hidden;
+}
+
+.card {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+.card:nth-child(2) { border-right: none; }
+.card:nth-child(3) { border-bottom: none; }
+.card:nth-child(4) { border-right: none; border-bottom: none; }
+
+.card-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--mid);
+  margin-bottom: 8px;
+}
+.card-value {
+  font-family: var(--display);
+  font-size: clamp(48px, 8vw, 80px);
+  line-height: 1;
+  color: var(--black);
+  letter-spacing: 0.02em;
+}
+.card-unit {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--mid);
+  margin-top: 4px;
+  letter-spacing: 0.1em;
+}
+
+/* ── BATTERY CARD (top-left) ─────────────────────── */
+#card-battery .card-value { color: var(--black); }
+
+.soc-bar-wrap {
+  margin-top: 12px;
+}
+.soc-bar-track {
+  width: 100%;
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.soc-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--green);
+  transition: width 1s ease, background 1s ease;
+  width: 0%;
+}
+.soc-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--mid);
+  margin-top: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* ── PANEL CARD (top-right) ──────────────────────── */
+#card-panel .card-value { color: var(--orange); }
+
+/* ── CHARGE STATE CARD (bottom-left) ────────────── */
+.state-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--gray);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-top: 8px;
+  transition: all 0.5s;
+}
+.state-badge.bulk       { background: #fff7ed; border-color: var(--orange); }
+.state-badge.absorption { background: #fefce8; border-color: var(--yellow); }
+.state-badge.float      { background: #f0fdf4; border-color: var(--green);  }
+.state-badge.fault      { background: #fff5f5; border-color: #ef4444;       }
+.state-icon { font-size: 20px; }
+.state-name {
+  font-family: var(--display);
+  font-size: 28px;
+  letter-spacing: 0.05em;
+}
+
+.yield-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: auto;
+}
+.yield-val {
+  font-family: var(--display);
+  font-size: 36px;
+  color: var(--green);
+  letter-spacing: 0.02em;
+}
+.yield-unit {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--mid);
+  letter-spacing: 0.1em;
+}
+
+/* ── CURRENT CARD (bottom-right) ─────────────────── */
+#card-current .card-value { transition: color 0.5s; }
+
+/* ── NO DATA OVERLAY ─────────────────────────────── */
+.no-data {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(255,255,255,0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s;
+}
+.no-data.show { opacity: 1; pointer-events: all; }
+.no-data-icon { font-size: 48px; }
+.no-data-title {
+  font-family: var(--display);
+  font-size: 36px;
+  letter-spacing: 0.05em;
+  color: var(--black);
+}
+.no-data-sub {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--mid);
+  text-align: center;
+  line-height: 1.8;
+}
+</style>
+</head>
+<body>
+
+<!-- ══ TOPBAR ════════════════════════════════════════ -->
+<div class="topbar">
+  <div class="logo">
+    <span class="logo-sun">☀️</span>
+    SOLAR
+  </div>
+  <a class="atm-link" href="/">⚡ SATS ATM</a>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <div id="solar-bat-icon" style="display:none;font-size:16px;"></div>
+    <div id="solar-conn-dot" style="display:none;width:10px;height:10px;border-radius:50%;flex-shrink:0;"></div>
+  </div>
+</div>
+
+<!-- ══ STATUS BAR ════════════════════════════════════ -->
+<div class="status-bar">
+  <div>
+    <span class="status-dot" id="status-dot"></span>
+    <span class="status-text" id="status-text">CONNECTING…</span>
+  </div>
+  <span class="last-update" id="last-update">—</span>
+</div>
+
+<!-- ══ MAIN GRID ══════════════════════════════════════ -->
+<div class="main">
+
+  <!-- Battery Voltage -->
+  <div class="card" id="card-battery">
+    <div>
+      <div class="card-label">Battery Voltage</div>
+      <div class="card-value" id="bat-v">—</div>
+      <div class="card-unit">VOLTS</div>
+    </div>
+    <div class="soc-bar-wrap">
+      <div class="soc-bar-track">
+        <div class="soc-bar-fill" id="soc-fill"></div>
+      </div>
+      <div class="soc-label">
+        <span>12.0V</span>
+        <span id="soc-pct">—</span>
+        <span>13.6V</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel Power -->
+  <div class="card" id="card-panel">
+    <div>
+      <div class="card-label">Panel Power</div>
+      <div class="card-value" id="panel-w">—</div>
+      <div class="card-unit">WATTS</div>
+    </div>
+    <div class="card-unit" id="panel-v-sub" style="margin-top:auto">— V panel</div>
+  </div>
+
+  <!-- Charge State + Today's Yield -->
+  <div class="card" id="card-state">
+    <div>
+      <div class="card-label">Charge State</div>
+      <div class="state-badge" id="state-badge">
+        <span class="state-icon" id="state-icon">⏳</span>
+        <span class="state-name" id="state-name">WAITING</span>
+      </div>
+    </div>
+    <div>
+      <div class="card-label" style="margin-top:16px">Today's Yield</div>
+      <div class="yield-row">
+        <span class="yield-val" id="yield-val">—</span>
+        <span class="yield-unit">Wh</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Battery Current -->
+  <div class="card" id="card-current">
+    <div>
+      <div class="card-label">Battery Current</div>
+      <div class="card-value" id="bat-i">—</div>
+      <div class="card-unit" id="bat-i-unit">AMPS</div>
+    </div>
+    <div class="card-unit" id="bat-i-sub" style="margin-top:auto">— charging</div>
+  </div>
+
+</div>
+
+<!-- ══ NO DATA OVERLAY ═══════════════════════════════ -->
+<div class="no-data" id="no-data">
+  <div class="no-data-icon">🔌</div>
+  <div class="no-data-title">NO VE.DIRECT DATA</div>
+  <div class="no-data-sub">Check wiring: MPPT TX → ESP32 GPIO16<br>MPPT GND → ESP32 GND</div>
+</div>
+
+<script>
+const POLL_MS = 2000;
+
+// LiFePO4 12V SoC voltage map (resting voltage approximation)
+function socFromVoltage(v) {
+  if (v >= 13.6) return 100;
+  if (v >= 13.4) return 95;
+  if (v >= 13.3) return 90;
+  if (v >= 13.2) return 80;
+  if (v >= 13.1) return 70;
+  if (v >= 13.0) return 60;
+  if (v >= 12.9) return 50;
+  if (v >= 12.8) return 40;
+  if (v >= 12.7) return 30;
+  if (v >= 12.5) return 20;
+  if (v >= 12.2) return 10;
+  if (v >= 12.0) return 5;
+  return 0;
+}
+
+const CS_MAP = {
+  0:   { name: 'OFF',         icon: '⭕', cls: '' },
+  2:   { name: 'FAULT',       icon: '⚠️', cls: 'fault' },
+  3:   { name: 'BULK',        icon: '⚡', cls: 'bulk' },
+  4:   { name: 'ABSORPTION',  icon: '🔆', cls: 'absorption' },
+  5:   { name: 'FLOAT',       icon: '✅', cls: 'float' },
+  7:   { name: 'EQUALIZE',    icon: '⚖️', cls: 'bulk' },
+  245: { name: 'STARTING',    icon: '🔄', cls: '' },
+  247: { name: 'AUTO EQ',     icon: '⚖️', cls: 'bulk' },
+  252: { name: 'EXT CTRL',    icon: '🔧', cls: '' },
+};
+
+let lastDataTime = 0;
+let noDataShown  = false;
+
+async function pollSolar() {
+  try {
+    const r = await fetch('/solar-data');
+    if (!r.ok) throw new Error('no response');
+    const d = await r.json();
+
+    if (!d.live) {
+      showNoData(true);
+      return;
+    }
+
+    showNoData(false);
+    lastDataTime = Date.now();
+
+    // Connectivity dot
+    const connDot = document.getElementById('solar-conn-dot');
+    if (connDot) {
+      connDot.style.display = 'block';
+      connDot.className = d.online ? 'conn-dot-online' : 'conn-dot-offline';
+    }
+
+    // Battery voltage indicator in topbar
+    const batIconEl = document.getElementById('solar-bat-icon');
+    if (batIconEl) {
+      let icon = '✅';
+      if (v < 12.0)       icon = '🔴';
+      else if (v < 12.2)  icon = '⚠️';
+      batIconEl.textContent = icon;
+      batIconEl.style.display = 'block';
+    }
+
+    // Battery voltage
+    const v = d.v;
+    document.getElementById('bat-v').textContent = v.toFixed(2);
+    const soc = socFromVoltage(v);
+    const fill = document.getElementById('soc-fill');
+    fill.style.width = soc + '%';
+    fill.style.background = soc > 50 ? 'var(--green)' : soc > 20 ? 'var(--orange)' : '#ef4444';
+    document.getElementById('soc-pct').textContent = soc + '% est.';
+
+    // Panel
+    document.getElementById('panel-w').textContent = d.ppv;
+    document.getElementById('panel-v-sub').textContent = d.vpv.toFixed(1) + 'V panel';
+
+    // Current
+    const i = d.i;
+    const iEl = document.getElementById('bat-i');
+    iEl.textContent = Math.abs(i).toFixed(1);
+    iEl.style.color = i >= 0 ? 'var(--green)' : '#ef4444';
+    document.getElementById('bat-i-unit').textContent = i >= 0 ? 'AMPS ↑' : 'AMPS ↓';
+    document.getElementById('bat-i-sub').textContent = i >= 0 ? 'charging' : 'discharging';
+
+    // Charge state
+    const cs = CS_MAP[d.cs] || { name: 'UNKNOWN', icon: '❓', cls: '' };
+    const badge = document.getElementById('state-badge');
+    badge.className = 'state-badge ' + cs.cls;
+    document.getElementById('state-icon').textContent = cs.icon;
+    document.getElementById('state-name').textContent = cs.name;
+
+    // Yield today (units are 10Wh from Victron)
+    document.getElementById('yield-val').textContent = (d.h20 * 10);
+
+    // Status bar
+    const dot = document.getElementById('status-dot');
+    dot.className = 'status-dot live';
+    document.getElementById('status-text').textContent = 'LIVE';
+    document.getElementById('last-update').textContent =
+      'Updated ' + new Date().toLocaleTimeString();
+
+  } catch(e) {
+    document.getElementById('status-dot').className = 'status-dot err';
+    document.getElementById('status-text').textContent = 'ERROR';
+    if (Date.now() - lastDataTime > 10000) showNoData(true);
+  }
+}
+
+function showNoData(show) {
+  document.getElementById('no-data').classList.toggle('show', show);
+  noDataShown = show;
+}
+
+setInterval(pollSolar, POLL_MS);
+pollSolar();
+</script>
+</body>
+</html>
+)rawhtml";
+String getSolarUI() { return String(FPSTR(SOLAR_HTML)); }
